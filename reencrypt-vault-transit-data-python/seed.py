@@ -3,6 +3,7 @@
 30 customers, one transit key each, a few thousand findings. Most details are
 small; six are large, and one is about 20 MB. Re-running wipes the tables first.
 """
+
 import base64
 import random
 import secrets
@@ -10,7 +11,8 @@ import secrets
 from vaultlab import OLD_ADDR, Vault, batches, connect, key_name, tokens
 
 rng = random.Random(7)
-LARGE = {  # customer -> sizes in bytes of its large details, stored side by side
+# customer -> sizes in bytes of its large details, stored side by side
+LARGE = {
     "c08": [900_000],
     "c14": [1_500_000],
     "c22": [3_000_000, 20_000_000, 3_000_000],
@@ -21,13 +23,19 @@ CANARY = "CANARY-" + secrets.token_hex(8)
 
 def small_detail() -> str:
     host = f"host-{rng.randint(1, 9999):04d}"
-    words = " ".join(rng.choice(["tls", "port", "header", "cookie", "cve", "banner", "redirect"])
-                     for _ in range(rng.randint(5, 400)))
+    words = " ".join(
+        rng.choice(
+            ["tls", "port", "header", "cookie", "cve", "banner", "redirect"]
+        )
+        for _ in range(rng.randint(5, 400))
+    )
     return f"{host}: {words}"
 
 
 def large_detail(size: int) -> str:
-    lines = [rng.randbytes(40).hex() for _ in range(size // 81 + 1)]  # 81 bytes a line
+    lines = [
+        rng.randbytes(40).hex() for _ in range(size // 81 + 1)
+    ]  # 81 bytes a line
     return "\n".join(lines)[:size]
 
 
@@ -42,7 +50,9 @@ def main() -> None:
         total = nulls = 0
         for n in range(1, 31):
             cid = f"c{n:02d}"
-            conn.execute("INSERT INTO customers VALUES (%s, %s)", (cid, f"Customer {n}"))
+            conn.execute(
+                "INSERT INTO customers VALUES (%s, %s)", (cid, f"Customer {n}")
+            )
             count = 150 if cid == "c22" else rng.randint(40, 180)
             details: list[str | None] = [small_detail() for _ in range(count)]
             if cid in LARGE:
@@ -55,12 +65,21 @@ def main() -> None:
             stored: list[str | None] = []
             for chunk in batches(details, 50):
                 plain = [d for d in chunk if d is not None]
-                cipher = iter(app.encrypt(key_name(cid), [b64(d) for d in plain]))
-                stored += [next(cipher) if d is not None else None for d in chunk]
+                cipher = iter(
+                    app.encrypt(key_name(cid), [b64(d) for d in plain])
+                )
+                stored += [
+                    next(cipher) if d is not None else None for d in chunk
+                ]
             with conn.cursor() as cur:
                 cur.executemany(
-                    "INSERT INTO findings (customer_id, title, detail) VALUES (%s, %s, %s)",
-                    [(cid, f"Finding {i + 1}", s) for i, s in enumerate(stored)])
+                    "INSERT INTO findings (customer_id, title, detail)"
+                    " VALUES (%s, %s, %s)",
+                    [
+                        (cid, f"Finding {i + 1}", s)
+                        for i, s in enumerate(stored)
+                    ],
+                )
             total += len(stored)
             nulls += stored.count(None)
     print(f"seeded 30 customers, {total} findings ({nulls} with no detail)")

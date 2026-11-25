@@ -1,4 +1,5 @@
-"""Shared helpers: one small Vault client over the HTTP API, and the database."""
+"""Shared helpers: a small Vault client over the HTTP API, and the database."""
+
 import json
 import os
 from pathlib import Path
@@ -24,7 +25,9 @@ class Vault:
         self.http.headers["X-Vault-Token"] = token
 
     def call(self, method: str, path: str, body: dict | None = None) -> dict:
-        r = self.http.request(method, f"{self.addr}/v1/{path}", json=body, timeout=300)
+        r = self.http.request(
+            method, f"{self.addr}/v1/{path}", json=body, timeout=300
+        )
         if r.status_code >= 400:
             try:
                 body = r.json()
@@ -32,19 +35,27 @@ class Vault:
                 body = {"errors": [r.text.strip()]}
             # Batch calls report per-item errors inside batch_results instead.
             results = (body.get("data") or {}).get("batch_results") or []
-            errors = body.get("errors") or sorted({i["error"] for i in results if i.get("error")})
+            errors = body.get("errors") or sorted(
+                {i["error"] for i in results if i.get("error")}
+            )
             raise VaultError(f"{self.name} {r.status_code}: {errors}")
         return r.json() if r.content else {}
 
     def decrypt(self, key: str, ciphertexts: list[str]) -> list[str]:
         """Ciphertexts in, base64 plaintexts out (never decoded here)."""
-        out = self.call("POST", f"transit/decrypt/{key}",
-                        {"batch_input": [{"ciphertext": c} for c in ciphertexts]})
+        out = self.call(
+            "POST",
+            f"transit/decrypt/{key}",
+            {"batch_input": [{"ciphertext": c} for c in ciphertexts]},
+        )
         return [r["plaintext"] for r in out["data"]["batch_results"]]
 
     def encrypt(self, key: str, plaintexts_b64: list[str]) -> list[str]:
-        out = self.call("POST", f"transit/encrypt/{key}",
-                        {"batch_input": [{"plaintext": p} for p in plaintexts_b64]})
+        out = self.call(
+            "POST",
+            f"transit/encrypt/{key}",
+            {"batch_input": [{"plaintext": p} for p in plaintexts_b64]},
+        )
         return [r["ciphertext"] for r in out["data"]["batch_results"]]
 
 
@@ -71,4 +82,4 @@ def key_name(customer_id: str) -> str:
 def batches(rows: list, max_items: int = 200):
     """Split rows into lists of at most max_items."""
     for i in range(0, len(rows), max_items):
-        yield rows[i:i + max_items]
+        yield rows[i : i + max_items]
