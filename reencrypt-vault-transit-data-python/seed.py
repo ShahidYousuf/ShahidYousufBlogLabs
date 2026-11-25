@@ -33,9 +33,8 @@ def small_detail() -> str:
 
 
 def large_detail(size: int) -> str:
-    lines = [
-        rng.randbytes(40).hex() for _ in range(size // 81 + 1)
-    ]  # 81 bytes a line
+    # 81 bytes a line: 80 hex characters and a newline
+    lines = [rng.randbytes(40).hex() for _ in range(size // 81 + 1)]
     return "\n".join(lines)[:size]
 
 
