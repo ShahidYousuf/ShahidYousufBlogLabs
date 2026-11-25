@@ -1,0 +1,7 @@
+# Lab state written at runtime: unseal keys and tokens for throwaway local Vaults.
+.new-vault-init.json
+.lab-tokens.json
+__pycache__/
+*.pyc
+.venv/
+.DS_Store

@@ -1,0 +1,55 @@
+services:
+  db:
+    image: postgres:18.7
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app
+      POSTGRES_DB: findings
+    volumes:
+      - ./schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h localhost -U app -d findings"]
+      interval: 1s
+      timeout: 3s
+      retries: 30
+
+  old-vault:
+    image: hashicorp/vault:2.2.2
+    command: server -dev
+    environment:
+      VAULT_DEV_ROOT_TOKEN_ID: old-root
+      VAULT_LOCAL_CONFIG: >-
+        {"listener": [{"tcp": {"address": "0.0.0.0:8210", "tls_disable": true,
+          "max_request_size": 67108864, "max_json_string_value_length": 33554432}}]}
+    healthcheck:
+      test: ["CMD-SHELL", "VAULT_ADDR=http://127.0.0.1:8200 vault status"]
+      interval: 1s
+      retries: 30
+
+  new-vault:
+    image: hashicorp/vault:2.2.2
+    command: server
+    volumes:
+      - ./new-vault.hcl:/vault/config/new-vault.hcl:ro
+      - new-vault-data:/vault/file
+    healthcheck:
+      # vault status exits 2 when sealed, 1 when unreachable: healthy means "answering".
+      test: ["CMD-SHELL", "VAULT_ADDR=http://127.0.0.1:8200 vault status; [ $$? -ne 1 ]"]
+      interval: 1s
+      retries: 30
+
+  job:
+    build: .
+    environment:
+      DATABASE_URL: postgresql://app:app@db:5432/findings
+      OLD_VAULT_ADDR: http://old-vault:8210
+      NEW_VAULT_ADDR: http://new-vault:8200
+    volumes:
+      - .:/lab
+    working_dir: /lab
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  new-vault-data:
