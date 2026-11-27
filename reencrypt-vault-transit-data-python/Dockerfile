@@ -1,4 +1,4 @@
-FROM python:3.14.8-slim
+FROM python:3.15.1-slim
 WORKDIR /lab
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
