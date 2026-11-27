@@ -1,0 +1,16 @@
+version: 2
+updates:
+  - package-ecosystem: "pip"
+    directories:
+      - "/*"
+    schedule:
+      interval: "weekly"
+    groups:
+      pip:
+        patterns:
+          - "*"
+  - package-ecosystem: "docker"
+    directories:
+      - "/*"
+    schedule:
+      interval: "weekly"
